@@ -4,10 +4,10 @@ from tqdm import tqdm
 import math
 from numba import njit
 
-SIMULATION_WIDTH = 1280 // 2
-SIMULATION_HEIGHT = 720 // 2
+SIMULATION_WIDTH = 192
+SIMULATION_HEIGHT = 108
 SIM_DT = 0.05
-SIM_DT_TAU = 1.0
+SIM_DT_TAU = 1 / 2
 SIM_TIME = 10.0
 SIM_STEPS = int(SIM_TIME / SIM_DT)
 SPEED_CNT = 9
@@ -15,7 +15,7 @@ SPEED_CNT = 9
 STREAM_CENTER = 10
 STREAM_START = int(SIMULATION_HEIGHT/2) - STREAM_CENTER
 STRAM_END = int(SIMULATION_HEIGHT/2) + STREAM_CENTER + 1
-STREAM_VAL = 100
+STREAM_VAL = 0.1
 
 '''
 ----- SPEED DESCRIPTION -----
@@ -93,6 +93,7 @@ def save_data(s, filename):
         for j in range(0, dim[1]):
             img[i, j] = calculate_speed(s[i, j, :])
     img /= np.max(img)
+    # img = np.sqrt(img)
     img *= 255
     img = img.astype(np.uint8)
     Image.fromarray(img).save(filename)
@@ -107,20 +108,22 @@ def streaming_step(s):
     # s[:, -1, :] = 0
     # s[0, :, :] = 0
     # s[-1, :, :] = 0
-    s[STREAM_START:STRAM_END, 0, 8] = STREAM_VAL
+    # s[STREAM_START:STRAM_END, 0, 8] = STREAM_VAL
     return s
 
 
 def lbm_basic():
 
     # set speed buffers
-    space = np.zeros((SIMULATION_HEIGHT, SIMULATION_WIDTH,
+    space = np.ones((SIMULATION_HEIGHT, SIMULATION_WIDTH,
                      SPEED_CNT), dtype=np.float64)
     # set initial velocities
     # space[:, :, 0] = STREAM_VAL
     space[:, :, 8] = STREAM_VAL * \
-        np.random.randn(SIMULATION_HEIGHT, SIMULATION_WIDTH)  # STREAM_VAL
-
+        (0.9 + 0.1 * np.random.randn(SIMULATION_HEIGHT, SIMULATION_WIDTH))
+    # space[:, :, 0] = STREAM_VAL * \
+    # (0.5 + 0.5 * np.random.randn(SIMULATION_HEIGHT, SIMULATION_WIDTH))
+    # space[STREAM_START:STRAM_END, 0, 8] = 100
     for i in tqdm(range(SIM_STEPS)):
         space = collision_step(space)
         space = streaming_step(space)
