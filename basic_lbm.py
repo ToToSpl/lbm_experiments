@@ -6,8 +6,8 @@ from numba import njit
 
 SIMULATION_WIDTH = 192
 SIMULATION_HEIGHT = 108
-SIM_DT = 0.1
-SIM_DT_TAU = 0.5
+SIM_DT = 0.01
+SIM_DT_TAU = 0.6
 SIM_TIME = 40.0
 SIM_STEPS = int(SIM_TIME / SIM_DT)
 SPEED_CNT = 9
@@ -74,7 +74,7 @@ def bgk_calc_dumb(speeds):
 def calculate_speed(speeds):
     ro = np.sum(speeds.reshape(SPEED_CNT))
     u = np.sum(np.multiply(velocities, speeds.reshape(SPEED_CNT, 1)), axis=0) / ro
-    return np.linalg.norm(u)
+    return u[1], u[0]
 
 
 @njit
@@ -86,16 +86,32 @@ def collision_step(space):
     return space
 
 
-def save_data(s, filename):
+def gen_data(s, cylinder):
     dim = s.shape
-    img = np.zeros((dim[0], dim[1]))
+    ux = np.zeros((dim[0], dim[1]), dtype=np.float64)
+    uy = np.zeros((dim[0], dim[1]), dtype=np.float64)
     for i in range(0, dim[0]):
         for j in range(0, dim[1]):
-            img[i, j] = calculate_speed(s[i, j, :])
-    img /= np.max(img)
+            ux[i, j], uy[i, j] = calculate_speed(s[i, j, :])
+    vorticity = (np.roll(ux, -1, axis=0) - np.roll(ux, 1, axis=0)) - \
+        (np.roll(uy, -1, axis=1) - np.roll(uy, 1, axis=1))
+    vorticity[cylinder] = np.nan
+    vorticity = np.ma.array(vorticity, mask=cylinder)
+    vorticity = 255 * np.sqrt(vorticity / np.max(vorticity))
+
+    img = np.zeros((dim[0], dim[1], 3))
+    for i in range(0, dim[0]):
+        for j in range(0, dim[1]):
+            if vorticity[i, j] > 0.0:
+                img[i, j, 2] = vorticity[i, j]
+            else:
+                img[i, j, 0] = -vorticity[i, j]
     # img = np.sqrt(img)
-    img *= 255
     img = img.astype(np.uint8)
+    return img
+
+
+def save_data(img, filename):
     Image.fromarray(img).save(filename)
 
 
@@ -112,22 +128,32 @@ def streaming_step(s):
     return s
 
 
-def lbm_basic():
+def obstacle_step(space, cylinder):
+    bndryC = space[cylinder, :]
+    space[cylinder, :] = bndryC[:, [0, 5, 6, 7, 8, 1, 2, 3, 4]]
+    return space
 
+
+def lbm_basic():
+    X, Y = np.meshgrid(range(SIMULATION_WIDTH), range(SIMULATION_HEIGHT))
     # set speed buffers
     space = np.ones((SIMULATION_HEIGHT, SIMULATION_WIDTH,
-                     SPEED_CNT), dtype=np.float64)
+                     SPEED_CNT), dtype=np.float64) + 0.01 * np.random.randn(SIMULATION_HEIGHT, SIMULATION_WIDTH, SPEED_CNT)
     # set initial velocities
-    # space[:, :, 0] = STREAM_VAL
-    space[:, :, 8] = STREAM_VAL * \
-        (0.9 + 0.1 * np.random.randn(SIMULATION_HEIGHT, SIMULATION_WIDTH))
-    # space[:, :, 0] = STREAM_VAL * \
-    # (0.5 + 0.5 * np.random.randn(SIMULATION_HEIGHT, SIMULATION_WIDTH))
-    # space[STREAM_START:STRAM_END, 0, 8] = 100
+    space[:, :, 8] = 2 * (1+0.2*np.cos(2*np.pi*X/SIMULATION_WIDTH*4))
+    rho = np.sum(space, 2)
+    for i in range(SPEED_CNT):
+        space[:, :, i] *= 100 / rho
+    # add cylinder
+    cylinder = (X - SIMULATION_WIDTH/4)**2 + \
+        (Y - SIMULATION_HEIGHT/2)**2 < (SIMULATION_HEIGHT/4)**2
+
     for i in tqdm(range(SIM_STEPS)):
         space = collision_step(space)
         space = streaming_step(space)
-        save_data(space, "data/exp_"+str(i)+".png")
+        space = obstacle_step(space, cylinder)
+        img = gen_data(space, cylinder)
+        save_data(img, "data/exp_"+str(i)+".png")
 
 
 if __name__ == "__main__":
