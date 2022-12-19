@@ -6,9 +6,9 @@ from numba import njit
 
 SIMULATION_WIDTH = 192
 SIMULATION_HEIGHT = 108
-SIM_DT = 0.05
-SIM_DT_TAU = 1 / 2
-SIM_TIME = 10.0
+SIM_DT = 0.1
+SIM_DT_TAU = 0.5
+SIM_TIME = 40.0
 SIM_STEPS = int(SIM_TIME / SIM_DT)
 SPEED_CNT = 9
 
@@ -42,7 +42,6 @@ velocities = np.array([
     [0, 1]
 ], dtype=np.float64)
 weights = np.array([4/9, 1/36, 1/9, 1/36, 1/9, 1/36, 1/9, 1/36, 1/9])
-cs2 = 0.5  # (1/sqrt(2)) ^ 2
 reflections = [0, 5, 6, 7, 8, 1, 2, 3, 4]
 
 
@@ -60,11 +59,12 @@ def bgk_calc_dumb(speeds):
         u = np.array([0.0, 0.0])
     # calc f_eq
     f_eq = np.zeros(SPEED_CNT)
-    element3 = np.dot(u, u) / (2*cs2)
+    element3 = np.dot(u, u)
     for i in range(SPEED_CNT):
-        element1 = np.dot(u, velocities[i]) / cs2
-        element2 = element1**2 / 2
-        f_eq[i] = weights[i] * ro * (1 + element1 + element2 + element3)
+        element1 = np.dot(u, velocities[i])
+        element2 = element1**2
+        f_eq[i] = weights[i] * ro * \
+            (1 + 3.0 * element1 + 4.5 * element2 + 1.5 * element3)
 
     omega = - (speeds1d - f_eq) * SIM_DT_TAU
     return omega.reshape(1, 1, SPEED_CNT)
