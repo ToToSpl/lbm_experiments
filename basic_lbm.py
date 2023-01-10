@@ -95,7 +95,7 @@ def gen_data(s, cylinder):
         (np.roll(uy, -1, axis=1) - np.roll(uy, 1, axis=1))
     vorticity[cylinder] = np.nan
     vorticity = np.ma.array(vorticity, mask=cylinder)
-    vorticity = 255 * np.sqrt(vorticity / np.max(vorticity))
+    vorticity = 2550 * np.clip(vorticity, -0.1, 0.1)
 
     img = np.ones((dim[0], dim[1], 3))
     for i in range(0, dim[0]):
@@ -103,7 +103,7 @@ def gen_data(s, cylinder):
             if vorticity[i, j] > 0.0:
                 img[i, j, 2] = vorticity[i, j]
             else:
-                img[i, j, 0] = -vorticity[i, j]
+                img[i, j, 0] = abs(vorticity[i, j])
     # img = np.sqrt(img)
     img = img.astype(np.uint8)
     return img
@@ -154,7 +154,8 @@ def lbm_basic():
         space = streaming_step(space)
         space = obstacle_step(space, cylinder)
         img = gen_data(space, cylinder)
-        save_data(img, "data/exp_"+str(i)+".png")
+        if i % 10 == 0:
+            save_data(img, "data/exp_"+str(i)+".png")
 
 
 if __name__ == "__main__":
