@@ -4,12 +4,10 @@ from tqdm import tqdm
 import math
 from numba import njit
 
-SIMULATION_WIDTH = 192
-SIMULATION_HEIGHT = 108
-SIM_DT = 0.01
-SIM_DT_TAU = 0.6
-SIM_TIME = 40.0
-SIM_STEPS = int(SIM_TIME / SIM_DT)
+SIMULATION_WIDTH = 400
+SIMULATION_HEIGHT = 100
+SIM_DT_TAU = 1.0 / 0.6
+SIM_STEPS = 4000
 SPEED_CNT = 9
 
 STREAM_CENTER = 10
@@ -64,7 +62,7 @@ def bgk_calc_dumb(speeds):
         element1 = np.dot(u, velocities[i])
         element2 = element1**2
         f_eq[i] = weights[i] * ro * \
-            (1 + 3.0 * element1 + 4.5 * element2 + 1.5 * element3)
+            (1 + 3.0 * element1 + 4.5 * element2 - 1.5 * element3)
 
     omega = - (speeds1d - f_eq) * SIM_DT_TAU
     return omega.reshape(1, 1, SPEED_CNT)
@@ -99,7 +97,7 @@ def gen_data(s, cylinder):
     vorticity = np.ma.array(vorticity, mask=cylinder)
     vorticity = 255 * np.sqrt(vorticity / np.max(vorticity))
 
-    img = np.zeros((dim[0], dim[1], 3))
+    img = np.ones((dim[0], dim[1], 3))
     for i in range(0, dim[0]):
         for j in range(0, dim[1]):
             if vorticity[i, j] > 0.0:
@@ -130,7 +128,8 @@ def streaming_step(s):
 
 def obstacle_step(space, cylinder):
     bndryC = space[cylinder, :]
-    space[cylinder, :] = bndryC[:, [0, 5, 6, 7, 8, 1, 2, 3, 4]]
+    bndryC = bndryC[:, [0, 5, 6, 7, 8, 1, 2, 3, 4]]
+    space[cylinder, :] = bndryC
     return space
 
 
@@ -138,9 +137,11 @@ def lbm_basic():
     X, Y = np.meshgrid(range(SIMULATION_WIDTH), range(SIMULATION_HEIGHT))
     # set speed buffers
     space = np.ones((SIMULATION_HEIGHT, SIMULATION_WIDTH,
-                     SPEED_CNT), dtype=np.float64) + 0.01 * np.random.randn(SIMULATION_HEIGHT, SIMULATION_WIDTH, SPEED_CNT)
+                     SPEED_CNT), dtype=np.float64)
+    space += 0.01 * \
+        np.random.randn(SIMULATION_HEIGHT, SIMULATION_WIDTH, SPEED_CNT)
     # set initial velocities
-    space[:, :, 8] = 2 * (1+0.2*np.cos(2*np.pi*X/SIMULATION_WIDTH*4))
+    space[:, :, 8] += 2 * (1+0.2*np.cos(2*np.pi*X/SIMULATION_WIDTH*4))
     rho = np.sum(space, 2)
     for i in range(SPEED_CNT):
         space[:, :, i] *= 100 / rho
