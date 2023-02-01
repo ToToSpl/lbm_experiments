@@ -133,6 +133,10 @@ def obstacle_step(space, cylinder):
     return space
 
 
+def save_lattice(name, space):
+    np.save(name, space)
+
+
 def lbm_basic():
     X, Y = np.meshgrid(range(SIMULATION_WIDTH), range(SIMULATION_HEIGHT))
     # set speed buffers
@@ -153,9 +157,10 @@ def lbm_basic():
         space = collision_step(space)
         space = streaming_step(space)
         space = obstacle_step(space, cylinder)
-        img = gen_data(space, cylinder)
+
         if i % 10 == 0:
-            save_data(img, "data/exp_"+str(i)+".png")
+            img = gen_data(space, cylinder)
+            save_data(img, "data/images/exp_"+str(i)+".png")
 
 
 if __name__ == "__main__":
