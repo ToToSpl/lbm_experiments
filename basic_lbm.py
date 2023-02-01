@@ -38,8 +38,9 @@ velocities = np.array([
     [1, 0],
     [1, 1],
     [0, 1]
-], dtype=np.float64)
-weights = np.array([4/9, 1/36, 1/9, 1/36, 1/9, 1/36, 1/9, 1/36, 1/9])
+], dtype=np.float32)
+weights = np.array([4/9, 1/36, 1/9, 1/36, 1/9, 1/36,
+                   1/9, 1/36, 1/9], dtype=np.float32)
 reflections = [0, 5, 6, 7, 8, 1, 2, 3, 4]
 
 
@@ -54,9 +55,9 @@ def bgk_calc_dumb(speeds):
         u = np.sum(np.multiply(
             velocities, speeds1d.reshape(SPEED_CNT, 1)), axis=0) / ro
     else:
-        u = np.array([0.0, 0.0])
+        u = np.array([0.0, 0.0], dtype=np.float32)
     # calc f_eq
-    f_eq = np.zeros(SPEED_CNT)
+    f_eq = np.zeros(SPEED_CNT, dtype=np.float32)
     element3 = np.dot(u, u)
     for i in range(SPEED_CNT):
         element1 = np.dot(u, velocities[i])
@@ -86,8 +87,8 @@ def collision_step(space):
 
 def gen_data(s, cylinder):
     dim = s.shape
-    ux = np.zeros((dim[0], dim[1]), dtype=np.float64)
-    uy = np.zeros((dim[0], dim[1]), dtype=np.float64)
+    ux = np.zeros((dim[0], dim[1]), dtype=np.float32)
+    uy = np.zeros((dim[0], dim[1]), dtype=np.float32)
     for i in range(0, dim[0]):
         for j in range(0, dim[1]):
             ux[i, j], uy[i, j] = calculate_speed(s[i, j, :])
@@ -141,7 +142,7 @@ def lbm_basic():
     X, Y = np.meshgrid(range(SIMULATION_WIDTH), range(SIMULATION_HEIGHT))
     # set speed buffers
     space = np.ones((SIMULATION_HEIGHT, SIMULATION_WIDTH,
-                     SPEED_CNT), dtype=np.float64)
+                     SPEED_CNT), dtype=np.float32)
     space += 0.01 * \
         np.random.randn(SIMULATION_HEIGHT, SIMULATION_WIDTH, SPEED_CNT)
     # set initial velocities
@@ -158,9 +159,9 @@ def lbm_basic():
         space = streaming_step(space)
         space = obstacle_step(space, cylinder)
 
-        if i % 10 == 0:
-            img = gen_data(space, cylinder)
-            save_data(img, "data/images/exp_"+str(i)+".png")
+        # if i % 10 == 0:
+        #     img = gen_data(space, cylinder)
+        #     save_data(img, "data/images/exp_"+str(i)+".png")
 
 
 if __name__ == "__main__":
