@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 from PIL import Image
 from tqdm import tqdm
 import math
@@ -138,6 +139,31 @@ def save_lattice(name, space):
     np.save(name, space)
 
 
+def generate_vector_field(space, cylinder):
+    vec = np.zeros((space.shape[0], space.shape[1], 2))
+
+    for i in range(velocities.shape[0]):
+        vec[:, :, 0] += velocities[i, 0] * space[:, :, i]
+        vec[:, :, 1] += velocities[i, 1] * space[:, :, i]
+    vec[cylinder, :] = 0.0
+    return vec
+
+
+def save_vector_field_plot(name, vec, res=4):
+    res = 4
+    vp = np.zeros((vec.shape[0] // res, vec.shape[1] // res, 2))
+    for y in range(0, vec.shape[0], res):
+        for x in range(0, vec.shape[1], res):
+            vp[y//res, x//res, 0] = np.sum(vec[y:y+res, x:x+res, 0]) / res**2
+            vp[y//res, x//res, 1] = np.sum(vec[y:y+res, x:x+res, 1]) / res**2
+    vp /= vp.max()
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    # ax.set_aspect(space.shape[0] / space.shape[1])
+    ax.quiver(vp[:, :, 1], vp[:, :, 0])
+    fig.savefig(name, dpi=300)
+
+
 def lbm_basic():
     X, Y = np.meshgrid(range(SIMULATION_WIDTH), range(SIMULATION_HEIGHT))
     # set speed buffers
@@ -154,12 +180,14 @@ def lbm_basic():
     cylinder = (X - SIMULATION_WIDTH/4)**2 + \
         (Y - SIMULATION_HEIGHT/2)**2 < (SIMULATION_HEIGHT/4)**2
 
-    for i in tqdm(range(SIM_STEPS)):
+    for i in tqdm(range(SIM_STEPS + 1)):
         space = collision_step(space)
         space = streaming_step(space)
         space = obstacle_step(space, cylinder)
 
-        # if i % 10 == 0:
+        if i % 20 == 0:
+            vecs = generate_vector_field(space, cylinder)
+            save_vector_field_plot("data/vectors/"+str(i)+".png", vecs)
         #     img = gen_data(space, cylinder)
         #     save_data(img, "data/images/exp_"+str(i)+".png")
 
