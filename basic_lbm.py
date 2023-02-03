@@ -156,7 +156,7 @@ def save_vector_field_plot(name, vec, res=4):
         for x in range(0, vec.shape[1], res):
             vp[y//res, x//res, 0] = np.sum(vec[y:y+res, x:x+res, 0]) / res**2
             vp[y//res, x//res, 1] = np.sum(vec[y:y+res, x:x+res, 1]) / res**2
-    vp /= vp.max()
+    vp /= 100  # vp.max()
     fig = plt.figure()
     ax = fig.add_subplot(111)
     # ax.set_aspect(space.shape[0] / space.shape[1])
