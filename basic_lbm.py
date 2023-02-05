@@ -145,6 +145,9 @@ def generate_vector_field(space, cylinder):
     for i in range(velocities.shape[0]):
         vec[:, :, 0] += velocities[i, 0] * space[:, :, i]
         vec[:, :, 1] += velocities[i, 1] * space[:, :, i]
+    ro = np.sum(space, axis=2)
+    vec[:, :, 0] /= ro
+    vec[:, :, 1] /= ro
     vec[cylinder, :] = 0.0
     return vec
 
@@ -160,6 +163,9 @@ def save_vector_field_plot(name, vec, res=4):
     fig = plt.figure()
     ax = fig.add_subplot(111)
     # ax.set_aspect(space.shape[0] / space.shape[1])
+    circ = plt.Circle((SIMULATION_WIDTH/(4*res), SIMULATION_HEIGHT /
+                      (2*res)), SIMULATION_HEIGHT/(4*res), color='g')
+    ax.add_patch(circ)
     ax.quiver(vp[:, :, 1], vp[:, :, 0])
     fig.savefig(name, dpi=300)
 
