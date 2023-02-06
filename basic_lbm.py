@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from PIL import Image
+from PIL import Image, ImageDraw
 from tqdm import tqdm
 import math
 from numba import njit
@@ -15,6 +15,10 @@ STREAM_CENTER = 10
 STREAM_START = int(SIMULATION_HEIGHT/2) - STREAM_CENTER
 STRAM_END = int(SIMULATION_HEIGHT/2) + STREAM_CENTER + 1
 STREAM_VAL = 0.1
+
+SMOKE_SPAWN_AMOUNT = 10
+SMOKE_SPAWN_1 = (SIMULATION_HEIGHT * (1 / 4), 0, 0)
+SMOKE_SPAWN_2 = (SIMULATION_HEIGHT * (3 / 4), 0, 1)
 
 '''
 ----- SPEED DESCRIPTION -----
@@ -119,12 +123,6 @@ def streaming_step(s):
     for i in range(1, SPEED_CNT):
         s[:, :, i] = np.roll(s[:, :, i], int(velocities[i][0]), axis=0)
         s[:, :, i] = np.roll(s[:, :, i], int(velocities[i][1]), axis=1)
-
-    # s[:, 0, :] = 0
-    # s[:, -1, :] = 0
-    # s[0, :, :] = 0
-    # s[-1, :, :] = 0
-    # s[STREAM_START:STRAM_END, 0, 8] = STREAM_VAL
     return s
 
 
@@ -170,6 +168,38 @@ def save_vector_field_plot(name, vec, res=4):
     fig.savefig(name, dpi=300)
 
 
+@njit
+def update_smoke(vecs, smoke):
+    new_smoke = []
+    for i in range(len(smoke)):
+        v = vecs[int(smoke[i][0]), int(smoke[i][1])]
+        s = (smoke[i][0] + v[0], smoke[i][1] + v[1], smoke[i][2])
+        if not (s[0] < 0 or s[0] > SIMULATION_HEIGHT or s[1] < 0 or s[1] > SIMULATION_WIDTH):
+            new_smoke.append(s)
+    return new_smoke
+
+
+def draw_smoke(filename, smoke):
+    img = np.zeros((SIMULATION_HEIGHT, SIMULATION_WIDTH, 3))
+
+    for s in smoke:
+        if s[2]:
+            img[int(s[0]), int(s[1])] += [80, 0, 0]
+        else:
+            img[int(s[0]), int(s[1])] += [0, 0, 80]
+
+    im = Image.fromarray(img.astype(np.uint8))
+    draw = ImageDraw.Draw(im)
+    draw.ellipse(
+        (SIMULATION_WIDTH/4 - SIMULATION_HEIGHT/4,
+         SIMULATION_HEIGHT/2 - SIMULATION_HEIGHT/4,
+         SIMULATION_WIDTH/4 + SIMULATION_HEIGHT/4,
+         SIMULATION_HEIGHT/2 + SIMULATION_HEIGHT/4),
+        fill=(0, 255, 0), outline=(0, 0, 0))
+    im.save(filename)
+    pass
+
+
 def lbm_basic():
     X, Y = np.meshgrid(range(SIMULATION_WIDTH), range(SIMULATION_HEIGHT))
     # set speed buffers
@@ -186,16 +216,28 @@ def lbm_basic():
     cylinder = (X - SIMULATION_WIDTH/4)**2 + \
         (Y - SIMULATION_HEIGHT/2)**2 < (SIMULATION_HEIGHT/4)**2
 
+    smoke = []
+    for x in range(SIMULATION_WIDTH//4 - SIMULATION_HEIGHT//2):
+        for y in range(SIMULATION_HEIGHT):
+            if y > SIMULATION_HEIGHT / 2:
+                smoke.append((float(y), float(x), 0))
+            else:
+                smoke.append((float(y), float(x), 1))
+
     for i in tqdm(range(SIM_STEPS + 1)):
         space = collision_step(space)
         space = streaming_step(space)
         space = obstacle_step(space, cylinder)
 
-        if i % 20 == 0:
-            vecs = generate_vector_field(space, cylinder)
-            save_vector_field_plot("data/vectors/"+str(i)+".png", vecs)
-        #     img = gen_data(space, cylinder)
-        #     save_data(img, "data/images/exp_"+str(i)+".png")
+        vecs = generate_vector_field(space, cylinder)
+        smoke = update_smoke(vecs, smoke)
+
+        if i % 10 == 0:
+            draw_smoke("data/smoke/"+str(i)+".png", smoke)
+            # save_vector_field_plot("data/vectors/"+str(i)+".png", vecs)
+
+            # img = gen_data(space, cylinder)
+            # save_data(img, "data/images/exp_"+str(i)+".png")
 
 
 if __name__ == "__main__":
