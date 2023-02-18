@@ -8,7 +8,7 @@ from numba import njit
 SIMULATION_WIDTH = 400
 SIMULATION_HEIGHT = 100
 SIM_DT_TAU = 1.0 / 0.6
-SIM_STEPS = 4000
+SIM_STEPS = 8000
 SPEED_CNT = 9
 
 STREAM_CENTER = 10
@@ -51,7 +51,6 @@ reflections = [0, 5, 6, 7, 8, 1, 2, 3, 4]
 
 @njit
 def bgk_calc_dumb(speeds):
-    '''it is dumb, because implementation is dumb'''
     speeds1d = speeds.reshape(SPEED_CNT)
     # find density
     ro = np.sum(speeds1d)
@@ -130,6 +129,10 @@ def obstacle_step(space, cylinder):
     bndryC = space[cylinder, :]
     bndryC = bndryC[:, [0, 5, 6, 7, 8, 1, 2, 3, 4]]
     space[cylinder, :] = bndryC
+    space[0, :, [0, 1, 2, 3, 4, 5, 6, 7, 8]
+          ] = space[0, :, [0, 5, 6, 7, 8, 1, 2, 3, 4]]
+    space[-1, :, [0, 1, 2, 3, 4, 5, 6, 7, 8]
+          ] = space[-1, :, [0, 5, 6, 7, 8, 1, 2, 3, 4]]
     return space
 
 
@@ -232,12 +235,12 @@ def lbm_basic():
         vecs = generate_vector_field(space, cylinder)
         smoke = update_smoke(vecs, smoke)
 
-        if i % 10 == 0:
+        if i % 20 == 0:
             draw_smoke("data/smoke/"+str(i)+".png", smoke)
-            # save_vector_field_plot("data/vectors/"+str(i)+".png", vecs)
+            save_vector_field_plot("data/vectors/"+str(i)+".png", vecs)
 
-            # img = gen_data(space, cylinder)
-            # save_data(img, "data/images/exp_"+str(i)+".png")
+            img = gen_data(space, cylinder)
+            save_data(img, "data/images/exp_"+str(i)+".png")
 
 
 if __name__ == "__main__":
