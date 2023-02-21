@@ -8,8 +8,9 @@ from numba import njit
 SIMULATION_WIDTH = 400
 SIMULATION_HEIGHT = 100
 SIM_DT_TAU = 1.0 / 0.6
-SIM_STEPS = 8000
+SIM_STEPS = 1000
 SPEED_CNT = 9
+CS2 = 1 / 3
 
 STREAM_CENTER = 10
 STREAM_START = int(SIMULATION_HEIGHT/2) - STREAM_CENTER
@@ -77,7 +78,7 @@ def bgk_calc_dumb(speeds):
 def calculate_speed(speeds):
     ro = np.sum(speeds.reshape(SPEED_CNT))
     u = np.sum(np.multiply(velocities, speeds.reshape(SPEED_CNT, 1)), axis=0) / ro
-    return u[1], u[0]
+    return u
 
 
 @njit
@@ -95,7 +96,8 @@ def gen_data(s, cylinder):
     uy = np.zeros((dim[0], dim[1]), dtype=np.float32)
     for i in range(0, dim[0]):
         for j in range(0, dim[1]):
-            ux[i, j], uy[i, j] = calculate_speed(s[i, j, :])
+            u = calculate_speed(s[i, j, :])
+            ux[i, j], uy[i, j] = u[1], u[0]
     vorticity = (np.roll(ux, -1, axis=0) - np.roll(ux, 1, axis=0)) - \
         (np.roll(uy, -1, axis=1) - np.roll(uy, 1, axis=1))
     vorticity[cylinder] = np.nan
@@ -126,13 +128,35 @@ def streaming_step(s):
 
 
 def obstacle_step(space, cylinder):
+    normal = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+    mirror = [0, 5, 6, 7, 8, 1, 2, 3, 4]
+    # cylinder
     bndryC = space[cylinder, :]
-    bndryC = bndryC[:, [0, 5, 6, 7, 8, 1, 2, 3, 4]]
+    bndryC = bndryC[:, mirror]
     space[cylinder, :] = bndryC
-    space[0, :, [0, 1, 2, 3, 4, 5, 6, 7, 8]
-          ] = space[0, :, [0, 5, 6, 7, 8, 1, 2, 3, 4]]
-    space[-1, :, [0, 1, 2, 3, 4, 5, 6, 7, 8]
-          ] = space[-1, :, [0, 5, 6, 7, 8, 1, 2, 3, 4]]
+    # walls up, down (bounce back)
+    space[0, :, normal] = space[0, :, mirror]
+    space[-1, :, normal] = space[-1, :, mirror]
+    return space
+    # inlet walls left, right (anti bounce back)
+    rho_avg = np.average(np.sum(space, 2))
+    for i in range(SIMULATION_HEIGHT):
+        u_b1 = calculate_speed(space[i, 0, :])
+        u_b2 = calculate_speed(space[i, 1, :])
+        uw = u_b1 + 0.5 * (u_b1 - u_b2)
+        elem3 = np.dot(uw, uw) / (2 * CS2)
+        for j in range(0, 9):
+            space[i, 0, j] = -space[i, 0, mirror[j]] + 2.0 * 1.1 * rho_avg * weights[j] * \
+                (1 + np.dot(velocities[j], uw)**2 / (2 * CS2**2) - elem3)
+    for i in range(SIMULATION_HEIGHT):
+        u_b1 = calculate_speed(space[i, SIMULATION_WIDTH-1, :])
+        u_b2 = calculate_speed(space[i, SIMULATION_WIDTH-2, :])
+        uw = u_b1 + 0.5 * (u_b1 - u_b2)
+        elem3 = np.dot(uw, uw) / (2 * CS2)
+        for j in range(0, 9):
+            space[i, -1, j] = -space[i, -1, mirror[j]] + 2.0 * 1.0 * rho_avg * weights[j] * \
+                (1 + np.dot(velocities[j], uw)**2 / (2 * CS2**2) - elem3)
+
     return space
 
 
