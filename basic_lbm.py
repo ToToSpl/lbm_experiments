@@ -264,7 +264,7 @@ def lbm_basic():
             save_vector_field_plot("data/vectors/"+str(i)+".png", vecs)
 
             img = gen_data(space, cylinder)
-            save_data(img, "data/images/exp_"+str(i)+".png")
+            save_data(img, "data/images/"+str(i)+".png")
 
 
 if __name__ == "__main__":
