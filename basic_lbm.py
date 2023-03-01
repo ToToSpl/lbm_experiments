@@ -10,7 +10,7 @@ SIMULATION_HEIGHT = 100
 SIM_DT_TAU = 1.0 / 0.6
 SIM_STEPS = 1000
 SPEED_CNT = 9
-CS2 = 1 / 3
+CS2 = 1.0 / np.sqrt(3)
 
 STREAM_CENTER = 10
 STREAM_START = int(SIMULATION_HEIGHT/2) - STREAM_CENTER
@@ -68,7 +68,7 @@ def bgk_calc_dumb(speeds):
         element1 = np.dot(u, velocities[i])
         element2 = element1**2
         f_eq[i] = weights[i] * ro * \
-            (1 + 3.0 * element1 + 4.5 * element2 - 1.5 * element3)
+            (1 + element1 / CS2 + element2 / (2 * CS2**2) - element3 / (2 * CS2))
 
     omega = - (speeds1d - f_eq) * SIM_DT_TAU
     return omega.reshape(1, 1, SPEED_CNT)
@@ -137,7 +137,7 @@ def obstacle_step(space, cylinder):
     # walls up, down (bounce back)
     space[0, :, normal] = space[0, :, mirror]
     space[-1, :, normal] = space[-1, :, mirror]
-    return space
+    # return space
     # inlet walls left, right (anti bounce back)
     rho_avg = np.average(np.sum(space, 2))
     for i in range(SIMULATION_HEIGHT):
@@ -193,6 +193,7 @@ def save_vector_field_plot(name, vec, res=4):
     ax.add_patch(circ)
     ax.quiver(vp[:, :, 1], vp[:, :, 0])
     fig.savefig(name, dpi=300)
+    plt.close()
 
 
 @njit
