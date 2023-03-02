@@ -239,7 +239,7 @@ def lbm_basic():
     space += 0.01 * \
         np.random.randn(SIMULATION_HEIGHT, SIMULATION_WIDTH, SPEED_CNT)
     # set initial velocities
-    space[:, :, 8] += 0.5  # * (1+0.2*np.cos(2*np.pi*X/SIMULATION_WIDTH*4))
+    # space[:, :, 8] += 0.5  # * (1+0.2*np.cos(2*np.pi*X/SIMULATION_WIDTH*4))
     # rho = np.sum(space, 2)
     # for i in range(SPEED_CNT):
     #     space[:, :, i] *= 100 / rho
@@ -264,7 +264,7 @@ def lbm_basic():
         smoke = update_smoke(vecs, smoke)
 
         if i % 20 == 0:
-            print(np.average(np.sum(space[1:-1, 1:-1, :], axis=2)))
+            # print(np.average(np.sum(space[1:-1, 1:-1, :], axis=2)))
             draw_smoke("data/smoke/"+str(i)+".png", smoke)
             save_vector_field_plot("data/vectors/"+str(i)+".png", vecs)
 
