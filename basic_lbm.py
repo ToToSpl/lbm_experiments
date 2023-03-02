@@ -2,15 +2,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw
 from tqdm import tqdm
-import math
 from numba import njit
 
+THREAD_NUM = 8
 SIMULATION_WIDTH = 400
 SIMULATION_HEIGHT = 100
-SIM_DT_TAU = 1.0 / 0.6
-SIM_STEPS = 1000
+SIM_DT = 1.0
+SIM_TAU = 0.7
+SIM_DT_TAU = SIM_DT / SIM_TAU
+SIM_STEPS = 8000  # 1000
 SPEED_CNT = 9
-CS2 = 1.0 / np.sqrt(3)
+CS2 = np.power(1.0 / np.sqrt(3), 2)
 
 STREAM_CENTER = 10
 STREAM_START = int(SIMULATION_HEIGHT/2) - STREAM_CENTER
@@ -20,6 +22,7 @@ STREAM_VAL = 0.1
 SMOKE_SPAWN_AMOUNT = 10
 SMOKE_SPAWN_1 = (SIMULATION_HEIGHT * (1 / 4), 0, 0)
 SMOKE_SPAWN_2 = (SIMULATION_HEIGHT * (3 / 4), 0, 1)
+
 
 '''
 ----- SPEED DESCRIPTION -----
@@ -49,8 +52,12 @@ weights = np.array([4/9, 1/36, 1/9, 1/36, 1/9, 1/36,
                    1/9, 1/36, 1/9], dtype=np.float32)
 reflections = [0, 5, 6, 7, 8, 1, 2, 3, 4]
 
+# ones and 3 to right
+# INLET_SPEED = np.array([0.0, -0.18181818], dtype=np.float32)
+INLET_SPEED = np.array([0.0, -0.1], dtype=np.float32)
 
-@njit
+
+@ njit
 def bgk_calc_dumb(speeds):
     speeds1d = speeds.reshape(SPEED_CNT)
     # find density
@@ -74,14 +81,16 @@ def bgk_calc_dumb(speeds):
     return omega.reshape(1, 1, SPEED_CNT)
 
 
-@njit
+@ njit
 def calculate_speed(speeds):
     ro = np.sum(speeds.reshape(SPEED_CNT))
+    if ro == 0.0:
+        return np.zeros((2), dtype=np.float32)
     u = np.sum(np.multiply(velocities, speeds.reshape(SPEED_CNT, 1)), axis=0) / ro
     return u
 
 
-@njit
+@ njit
 def collision_step(space):
     dim = space.shape
     for i in range(0, dim[0]):
@@ -137,26 +146,20 @@ def obstacle_step(space, cylinder):
     # walls up, down (bounce back)
     space[0, :, normal] = space[0, :, mirror]
     space[-1, :, normal] = space[-1, :, mirror]
-    # return space
     # inlet walls left, right (anti bounce back)
-    rho_avg = np.average(np.sum(space, 2))
-    for i in range(SIMULATION_HEIGHT):
-        u_b1 = calculate_speed(space[i, 0, :])
-        u_b2 = calculate_speed(space[i, 1, :])
-        uw = u_b1 + 0.5 * (u_b1 - u_b2)
-        elem3 = np.dot(uw, uw) / (2 * CS2)
-        for j in range(0, 9):
-            space[i, 0, j] = -space[i, 0, mirror[j]] + 2.0 * 1.1 * rho_avg * weights[j] * \
-                (1 + np.dot(velocities[j], uw)**2 / (2 * CS2**2) - elem3)
-    for i in range(SIMULATION_HEIGHT):
-        u_b1 = calculate_speed(space[i, SIMULATION_WIDTH-1, :])
-        u_b2 = calculate_speed(space[i, SIMULATION_WIDTH-2, :])
-        uw = u_b1 + 0.5 * (u_b1 - u_b2)
-        elem3 = np.dot(uw, uw) / (2 * CS2)
-        for j in range(0, 9):
-            space[i, -1, j] = -space[i, -1, mirror[j]] + 2.0 * 1.0 * rho_avg * weights[j] * \
-                (1 + np.dot(velocities[j], uw)**2 / (2 * CS2**2) - elem3)
-
+    for i in range(0, SIMULATION_HEIGHT):
+        rho_b1 = np.sum(space[i, 0, :])
+        rho_b2 = np.sum(space[i, 1, :])
+        rho_w = rho_b1 + 0.5 * (rho_b1 - rho_b2)
+        for j in range(0, SPEED_CNT):
+            space[i, 0, j] = space[i, 0, mirror[j]] - 2.0 * rho_w * weights[j] * \
+                (np.dot(velocities[j], INLET_SPEED) / CS2)
+        rho_b1 = np.sum(space[i, -1, :])
+        rho_b2 = np.sum(space[i, -2, :])
+        rho_w = rho_b1 + 0.5 * (rho_b1 - rho_b2)
+        for j in range(0, SPEED_CNT):
+            space[i, -1, j] = space[i, 0, mirror[j]] - 2.0 * rho_w * weights[j] * \
+                (np.dot(velocities[j], INLET_SPEED) / CS2)
     return space
 
 
@@ -189,14 +192,14 @@ def save_vector_field_plot(name, vec, res=4):
     ax = fig.add_subplot(111)
     # ax.set_aspect(space.shape[0] / space.shape[1])
     circ = plt.Circle((SIMULATION_WIDTH/(4*res), SIMULATION_HEIGHT /
-                      (2*res)), SIMULATION_HEIGHT/(4*res), color='g')
+                       (2*res)), SIMULATION_HEIGHT/(4*res), color='g')
     ax.add_patch(circ)
     ax.quiver(vp[:, :, 1], vp[:, :, 0])
     fig.savefig(name, dpi=300)
     plt.close()
 
 
-@njit
+@ njit
 def update_smoke(vecs, smoke):
     new_smoke = []
     for i in range(len(smoke)):
@@ -236,10 +239,10 @@ def lbm_basic():
     space += 0.01 * \
         np.random.randn(SIMULATION_HEIGHT, SIMULATION_WIDTH, SPEED_CNT)
     # set initial velocities
-    space[:, :, 8] += 2 * (1+0.2*np.cos(2*np.pi*X/SIMULATION_WIDTH*4))
-    rho = np.sum(space, 2)
-    for i in range(SPEED_CNT):
-        space[:, :, i] *= 100 / rho
+    space[:, :, 8] += 0.5  # * (1+0.2*np.cos(2*np.pi*X/SIMULATION_WIDTH*4))
+    # rho = np.sum(space, 2)
+    # for i in range(SPEED_CNT):
+    #     space[:, :, i] *= 100 / rho
     # add cylinder
     cylinder = (X - SIMULATION_WIDTH/4)**2 + \
         (Y - SIMULATION_HEIGHT/2)**2 < (SIMULATION_HEIGHT/4)**2
@@ -254,13 +257,14 @@ def lbm_basic():
 
     for i in tqdm(range(SIM_STEPS + 1)):
         space = collision_step(space)
-        space = streaming_step(space)
         space = obstacle_step(space, cylinder)
+        space = streaming_step(space)
 
         vecs = generate_vector_field(space, cylinder)
         smoke = update_smoke(vecs, smoke)
 
         if i % 20 == 0:
+            print(np.average(np.sum(space[1:-1, 1:-1, :], axis=2)))
             draw_smoke("data/smoke/"+str(i)+".png", smoke)
             save_vector_field_plot("data/vectors/"+str(i)+".png", vecs)
 
