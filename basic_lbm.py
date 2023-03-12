@@ -205,8 +205,11 @@ def update_smoke(vecs, smoke):
     for i in range(len(smoke)):
         v = vecs[int(smoke[i][0]), int(smoke[i][1])]
         s = (smoke[i][0] + v[0], smoke[i][1] + v[1], smoke[i][2])
-        if not (s[0] < 0 or s[0] > SIMULATION_HEIGHT or s[1] < 0 or s[1] > SIMULATION_WIDTH):
-            new_smoke.append(s)
+        if (s[0] < 0 or s[0] > SIMULATION_HEIGHT or s[1] < 0 or s[1] > SIMULATION_WIDTH):
+            continue
+
+        new_smoke.append(s)
+
     return new_smoke
 
 
@@ -228,7 +231,6 @@ def draw_smoke(filename, smoke):
          SIMULATION_HEIGHT/2 + SIMULATION_HEIGHT/4),
         fill=(0, 255, 0), outline=(0, 0, 0))
     im.save(filename)
-    pass
 
 
 def lbm_basic():
@@ -247,13 +249,20 @@ def lbm_basic():
     cylinder = (X - SIMULATION_WIDTH/4)**2 + \
         (Y - SIMULATION_HEIGHT/2)**2 < (SIMULATION_HEIGHT/4)**2
 
+    smoke_spawn_particles_red = []
+    smoke_spawn_particles_blue = []
+    for y in range(0, SIMULATION_HEIGHT//2, 16):
+        for i in range(4):
+            if y + i >= SIMULATION_HEIGHT//2:
+                continue
+            smoke_spawn_particles_red.append(
+                (float(SIMULATION_HEIGHT//2 + y+i), 2.0, 0))
+            smoke_spawn_particles_blue.append(
+                (float(SIMULATION_HEIGHT//2 - y-i), 2.0, 1))
+
     smoke = []
-    for x in range(SIMULATION_WIDTH//4 - SIMULATION_HEIGHT//2):
-        for y in range(SIMULATION_HEIGHT):
-            if y > SIMULATION_HEIGHT / 2:
-                smoke.append((float(y), float(x), 0))
-            else:
-                smoke.append((float(y), float(x), 1))
+    smoke += smoke_spawn_particles_red
+    smoke += smoke_spawn_particles_blue
 
     for i in tqdm(range(SIM_STEPS + 1)):
         space = collision_step(space)
@@ -262,6 +271,10 @@ def lbm_basic():
 
         vecs = generate_vector_field(space, cylinder)
         smoke = update_smoke(vecs, smoke)
+
+        if i % 10 == 0:
+            smoke += smoke_spawn_particles_red
+            smoke += smoke_spawn_particles_blue
 
         if i % 20 == 0:
             # print(np.average(np.sum(space[1:-1, 1:-1, :], axis=2)))
