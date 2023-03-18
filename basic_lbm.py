@@ -129,6 +129,13 @@ def save_data(img, filename):
     Image.fromarray(img).save(filename)
 
 
+def save_u_mag(vecs, filename):
+    mags = np.linalg.norm(vecs, axis=2)
+    mags = 255.0 / (np.sqrt(CS2)) * mags
+    mags = mags.astype(np.uint8)
+    Image.fromarray(mags).save(filename)
+
+
 def streaming_step(s):
     for i in range(1, SPEED_CNT):
         s[:, :, i] = np.roll(s[:, :, i], int(velocities[i][0]), axis=0)
@@ -280,9 +287,12 @@ def lbm_basic():
             smoke = update_smoke(vecs, smoke, steps=10)
             if i % 20 != 0:
                 continue
+
             # print(np.average(np.sum(space[1:-1, 1:-1, :], axis=2)))
             draw_smoke("data/smoke/"+str(i)+".png", smoke)
             save_vector_field_plot("data/vectors/"+str(i)+".png", vecs)
+
+            save_u_mag(vecs, "data/u_mag/"+str(i)+".png")
 
             img = gen_data(space, cylinder)
             save_data(img, "data/images/"+str(i)+".png")
