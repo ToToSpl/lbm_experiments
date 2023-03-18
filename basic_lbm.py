@@ -200,11 +200,12 @@ def save_vector_field_plot(name, vec, res=4):
 
 
 @ njit
-def update_smoke(vecs, smoke):
+def update_smoke(vecs, smoke, steps=1):
     new_smoke = []
     for i in range(len(smoke)):
         v = vecs[int(smoke[i][0]), int(smoke[i][1])]
-        s = (smoke[i][0] + v[0], smoke[i][1] + v[1], smoke[i][2])
+        s = (smoke[i][0] + v[0] * steps, smoke[i]
+             [1] + v[1] * steps, smoke[i][2])
         if (s[0] < 0 or s[0] > SIMULATION_HEIGHT or s[1] < 0 or s[1] > SIMULATION_WIDTH):
             continue
 
@@ -269,14 +270,16 @@ def lbm_basic():
         space = obstacle_step(space, cylinder)
         space = streaming_step(space)
 
-        vecs = generate_vector_field(space, cylinder)
-        smoke = update_smoke(vecs, smoke)
+        # vecs = generate_vector_field(space, cylinder)
+        # smoke = update_smoke(vecs, smoke)
 
         if i % 10 == 0:
             smoke += smoke_spawn_particles_red
             smoke += smoke_spawn_particles_blue
-
-        if i % 20 == 0:
+            vecs = generate_vector_field(space, cylinder)
+            smoke = update_smoke(vecs, smoke, steps=10)
+            if i % 20 != 0:
+                continue
             # print(np.average(np.sum(space[1:-1, 1:-1, :], axis=2)))
             draw_smoke("data/smoke/"+str(i)+".png", smoke)
             save_vector_field_plot("data/vectors/"+str(i)+".png", vecs)
