@@ -172,7 +172,7 @@ def obstacle_step(space, cylinder):
         rho_b2 = np.sum(space[i, -2, :])
         rho_w = rho_b1 + 0.5 * (rho_b1 - rho_b2)
         for j in range(0, SPEED_CNT):
-            space[i, -1, j] = space[i, 0, mirror[j]] - 2.0 * rho_w * weights[j] * \
+            space[i, -1, j] = space[i, -1, mirror[j]] - 2.0 * rho_w * weights[j] * \
                 (np.dot(velocities[j], INLET_SPEED) / CS2)
     return space
 
