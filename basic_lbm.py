@@ -136,6 +136,13 @@ def save_u_mag(vecs, filename):
     Image.fromarray(mags).save(filename)
 
 
+def save_rho(space, filename):
+    rhos = np.sum(space, axis=2)
+    rhos = 255.0 / (2.0 * SPEED_CNT) * rhos
+    rhos = rhos.astype(np.uint8)
+    Image.fromarray(rhos).save(filename)
+
+
 def streaming_step(s):
     for i in range(1, SPEED_CNT):
         s[:, :, i] = np.roll(s[:, :, i], int(velocities[i][0]), axis=0)
@@ -246,8 +253,8 @@ def lbm_basic():
     # set speed buffers
     space = np.ones((SIMULATION_HEIGHT, SIMULATION_WIDTH,
                      SPEED_CNT), dtype=np.float32)
-    space += 0.01 * \
-        np.random.randn(SIMULATION_HEIGHT, SIMULATION_WIDTH, SPEED_CNT)
+    # space += 0.01 * \
+    #     np.random.randn(SIMULATION_HEIGHT, SIMULATION_WIDTH, SPEED_CNT)
     # set initial velocities
     # space[:, :, 8] += 0.5  # * (1+0.2*np.cos(2*np.pi*X/SIMULATION_WIDTH*4))
     # rho = np.sum(space, 2)
@@ -293,6 +300,7 @@ def lbm_basic():
             save_vector_field_plot("data/vectors/"+str(i)+".png", vecs)
 
             save_u_mag(vecs, "data/u_mag/"+str(i)+".png")
+            save_rho(space, "data/rho/"+str(i)+".png")
 
             img = gen_data(space, cylinder)
             save_data(img, "data/images/"+str(i)+".png")

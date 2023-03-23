@@ -7,6 +7,7 @@ PATH_VORTEX = "data/images/*.png"
 PATH_SMOKE = "data/smoke/*.png"
 PATH_VECTORS = "data/vectors/*.png"
 PATH_U_MAG = "data/u_mag/*.png"
+PATH_RHO = "data/rho/*.png"
 
 
 def generate_gif(images_path, output_path, duration=0.5, smoke=False):
@@ -32,6 +33,7 @@ def main():
     generate_gif(PATH_SMOKE, "./data/smoke.gif", duration=1/30, smoke=True)
     generate_gif(PATH_VECTORS, "./data/vectors.gif", duration=1/30)
     generate_gif(PATH_U_MAG, "./data/u_mag.gif", duration=1/30)
+    generate_gif(PATH_RHO, "./data/rho.gif", duration=1/30)
 
 
 if __name__ == "__main__":
