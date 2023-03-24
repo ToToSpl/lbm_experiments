@@ -82,21 +82,21 @@ def bgk_calc_dumb(speeds):
 
 
 @ njit
-def calculate_speed(speeds):
-    ro = np.sum(speeds.reshape(SPEED_CNT))
-    if ro == 0.0:
-        return np.zeros((2), dtype=np.float32)
-    u = np.sum(np.multiply(velocities, speeds.reshape(SPEED_CNT, 1)), axis=0) / ro
-    return u
-
-
-@ njit
 def collision_step(space):
     dim = space.shape
     for i in range(0, dim[0]):
         for j in range(0, dim[1]):
             space[i, j, :] = space[i, j, :] + bgk_calc_dumb(space[i, j, :])
     return space
+
+
+@ njit
+def calculate_speed(speeds):
+    ro = np.sum(speeds.reshape(SPEED_CNT))
+    if ro == 0.0:
+        return np.zeros((2), dtype=np.float32)
+    u = np.sum(np.multiply(velocities, speeds.reshape(SPEED_CNT, 1)), axis=0) / ro
+    return u
 
 
 def gen_data(s, cylinder):
@@ -144,9 +144,14 @@ def save_rho(space, filename):
 
 
 def streaming_step(s):
-    for i in range(1, SPEED_CNT):
-        s[:, :, i] = np.roll(s[:, :, i], int(velocities[i][0]), axis=0)
-        s[:, :, i] = np.roll(s[:, :, i], int(velocities[i][1]), axis=1)
+    x_plus = [1, 7, 8]
+    x_minus = [3, 4, 5]
+    y_plus = [5, 6, 7]
+    y_minus = [1, 2, 3]
+    s[:, :, x_plus] = np.roll(s[:, :, x_plus], 1, axis=1)
+    s[:, :, x_minus] = np.roll(s[:, :, x_minus], -1, axis=1)
+    s[:, :, y_plus] = np.roll(s[:, :, y_plus], 1, axis=0)
+    s[:, :, y_minus] = np.roll(s[:, :, y_minus], -1, axis=0)
     return s
 
 
