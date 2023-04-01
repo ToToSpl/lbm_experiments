@@ -4,7 +4,6 @@ from PIL import Image, ImageDraw
 from tqdm import tqdm
 from numba import njit
 
-THREAD_NUM = 8
 SIMULATION_WIDTH = 400
 SIMULATION_HEIGHT = 100
 SIM_DT = 1.0
@@ -17,7 +16,6 @@ CS2 = np.power(1.0 / np.sqrt(3), 2)
 STREAM_CENTER = 10
 STREAM_START = int(SIMULATION_HEIGHT/2) - STREAM_CENTER
 STRAM_END = int(SIMULATION_HEIGHT/2) + STREAM_CENTER + 1
-STREAM_VAL = 0.1
 
 SMOKE_SPAWN_AMOUNT = 10
 SMOKE_SPAWN_1 = (SIMULATION_HEIGHT * (1 / 4), 0, 0)
@@ -37,20 +35,35 @@ SMOKE_SPAWN_2 = (SIMULATION_HEIGHT * (3 / 4), 0, 1)
 8 - right
 '''
 
+# velocities = np.array([
+#     [0, 0],
+#     [-1, 1],
+#     [-1, 0],
+#     [-1, -1],
+#     [0, -1],
+#     [1, -1],
+#     [1, 0],
+#     [1, 1],
+#     [0, 1]
+# ], dtype=np.float32)
+# weights = np.array([4/9, 1/36, 1/9, 1/36, 1/9, 1/36,
+#                    1/9, 1/36, 1/9], dtype=np.float32)
+# reflections = [0, 5, 6, 7, 8, 1, 2, 3, 4]
+
 velocities = np.array([
     [0, 0],
-    [-1, 1],
-    [-1, 0],
-    [-1, -1],
-    [0, -1],
-    [1, -1],
     [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
     [1, 1],
-    [0, 1]
+    [-1, -1],
+    [1, -1],
+    [-1, 1]
 ], dtype=np.float32)
-weights = np.array([4/9, 1/36, 1/9, 1/36, 1/9, 1/36,
-                   1/9, 1/36, 1/9], dtype=np.float32)
-reflections = [0, 5, 6, 7, 8, 1, 2, 3, 4]
+weights = np.array([4/9, 1/9, 1/9, 1/9, 1/9, 1/36, 1 /
+                   36, 1/36, 1/36], dtype=np.float32)
+
 
 # ones and 3 to right
 # INLET_SPEED = np.array([0.0, -0.18181818], dtype=np.float32)
@@ -144,10 +157,10 @@ def save_rho(space, filename):
 
 
 def streaming_step(s):
-    x_plus = [1, 7, 8]
-    x_minus = [3, 4, 5]
-    y_plus = [5, 6, 7]
-    y_minus = [1, 2, 3]
+    y_plus = [1, 5, 7]
+    y_minus = [2, 6, 8]
+    x_plus = [3, 5, 8]
+    x_minus = [4, 6, 7]
     s[:, :, x_plus] = np.roll(s[:, :, x_plus], 1, axis=1)
     s[:, :, x_minus] = np.roll(s[:, :, x_minus], -1, axis=1)
     s[:, :, y_plus] = np.roll(s[:, :, y_plus], 1, axis=0)
@@ -157,11 +170,11 @@ def streaming_step(s):
 
 def obstacle_step(space, cylinder):
     normal = [0, 1, 2, 3, 4, 5, 6, 7, 8]
-    mirror = [0, 5, 6, 7, 8, 1, 2, 3, 4]
-    # cylinder
-    bndryC = space[cylinder, :]
-    bndryC = bndryC[:, mirror]
-    space[cylinder, :] = bndryC
+    mirror = [0, 2, 1, 4, 3, 6, 5, 8, 7]
+    # # cylinder
+    # bndryC = space[cylinder, :]
+    # bndryC = bndryC[:, mirror]
+    # space[cylinder, :] = bndryC
     # walls up, down (bounce back)
     space[0, :, normal] = space[0, :, mirror]
     space[-1, :, normal] = space[-1, :, mirror]
@@ -170,6 +183,8 @@ def obstacle_step(space, cylinder):
         rho_b1 = np.sum(space[i, 0, :])
         rho_b2 = np.sum(space[i, 1, :])
         rho_w = rho_b1 + 0.5 * (rho_b1 - rho_b2)
+        if i == 1:
+            print(rho_w, rho_b1, rho_b2)
         for j in range(0, SPEED_CNT):
             space[i, 0, j] = space[i, 0, mirror[j]] - 2.0 * rho_w * weights[j] * \
                 (np.dot(velocities[j], INLET_SPEED) / CS2)
