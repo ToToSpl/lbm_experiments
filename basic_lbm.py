@@ -52,14 +52,14 @@ SMOKE_SPAWN_2 = (SIMULATION_HEIGHT * (3 / 4), 0, 1)
 
 velocities = np.array([
     [0, 0],
-    [1, 0],
-    [-1, 0],
     [0, 1],
     [0, -1],
+    [1, 0],
+    [-1, 0],
     [1, 1],
     [-1, -1],
-    [1, -1],
-    [-1, 1]
+    [-1, 1],
+    [1, -1]
 ], dtype=np.float32)
 weights = np.array([4/9, 1/9, 1/9, 1/9, 1/9, 1/36, 1 /
                    36, 1/36, 1/36], dtype=np.float32)
@@ -67,7 +67,7 @@ weights = np.array([4/9, 1/9, 1/9, 1/9, 1/9, 1/36, 1 /
 
 # ones and 3 to right
 # INLET_SPEED = np.array([0.0, -0.18181818], dtype=np.float32)
-INLET_SPEED = np.array([0.0, -0.1], dtype=np.float32)
+INLET_SPEED = np.array([0.05, -0.05], dtype=np.float32)
 
 
 @ njit
@@ -144,7 +144,7 @@ def save_data(img, filename):
 
 def save_u_mag(vecs, filename):
     mags = np.linalg.norm(vecs, axis=2)
-    mags = 255.0 / (np.sqrt(CS2)) * mags
+    mags = (255.0 / (np.sqrt(CS2))) * mags
     mags = mags.astype(np.uint8)
     Image.fromarray(mags).save(filename)
 
@@ -157,10 +157,10 @@ def save_rho(space, filename):
 
 
 def streaming_step(s):
-    y_plus = [1, 5, 7]
-    y_minus = [2, 6, 8]
-    x_plus = [3, 5, 8]
-    x_minus = [4, 6, 7]
+    x_plus = [1, 5, 7]
+    x_minus = [2, 6, 8]
+    y_plus = [3, 5, 8]
+    y_minus = [4, 6, 7]
     s[:, :, x_plus] = np.roll(s[:, :, x_plus], 1, axis=1)
     s[:, :, x_minus] = np.roll(s[:, :, x_minus], -1, axis=1)
     s[:, :, y_plus] = np.roll(s[:, :, y_plus], 1, axis=0)
@@ -171,29 +171,22 @@ def streaming_step(s):
 def obstacle_step(space, cylinder):
     normal = [0, 1, 2, 3, 4, 5, 6, 7, 8]
     mirror = [0, 2, 1, 4, 3, 6, 5, 8, 7]
-    # # cylinder
-    # bndryC = space[cylinder, :]
-    # bndryC = bndryC[:, mirror]
-    # space[cylinder, :] = bndryC
+    # cylinder
+    bndryC = space[cylinder, :]
+    bndryC = bndryC[:, mirror]
+    space[cylinder, :] = bndryC
+
+    # inlet walls left, right (bounce back with speed)
+    for i in range(1, SIMULATION_HEIGHT-1):
+        rho_b1 = np.sum(space[i, 0, :])
+
+        space_mirror = space[i, 0, mirror]
+        for j in range(0, SPEED_CNT):
+            space[i, 0, j] = space_mirror[j] - 2.0 * weights[j] * \
+                rho_b1 * (np.dot(INLET_SPEED, velocities[j]) / CS2)
     # walls up, down (bounce back)
     space[0, :, normal] = space[0, :, mirror]
     space[-1, :, normal] = space[-1, :, mirror]
-    # inlet walls left, right (anti bounce back)
-    for i in range(0, SIMULATION_HEIGHT):
-        rho_b1 = np.sum(space[i, 0, :])
-        rho_b2 = np.sum(space[i, 1, :])
-        rho_w = rho_b1 + 0.5 * (rho_b1 - rho_b2)
-        if i == 1:
-            print(rho_w, rho_b1, rho_b2)
-        for j in range(0, SPEED_CNT):
-            space[i, 0, j] = space[i, 0, mirror[j]] - 2.0 * rho_w * weights[j] * \
-                (np.dot(velocities[j], INLET_SPEED) / CS2)
-        rho_b1 = np.sum(space[i, -1, :])
-        rho_b2 = np.sum(space[i, -2, :])
-        rho_w = rho_b1 + 0.5 * (rho_b1 - rho_b2)
-        for j in range(0, SPEED_CNT):
-            space[i, -1, j] = space[i, -1, mirror[j]] - 2.0 * rho_w * weights[j] * \
-                (np.dot(velocities[j], INLET_SPEED) / CS2)
     return space
 
 
@@ -221,7 +214,7 @@ def save_vector_field_plot(name, vec, res=4):
         for x in range(0, vec.shape[1], res):
             vp[y//res, x//res, 0] = np.sum(vec[y:y+res, x:x+res, 0]) / res**2
             vp[y//res, x//res, 1] = np.sum(vec[y:y+res, x:x+res, 1]) / res**2
-    vp /= 100  # vp.max()
+    vp /= np.sqrt(CS2)
     fig = plt.figure()
     ax = fig.add_subplot(111)
     # ax.set_aspect(space.shape[0] / space.shape[1])
